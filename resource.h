@@ -143,7 +143,7 @@
 #define IDC_PLUGINS                     1055
 #define IDC_MOVEUP                      1056
 #define IDC_REPLACE                     1056
-#define IDC_ADD2                        1056
+#define IDC_ADDFOLDER                   1211
 #define IDC_MOVEDOWN                    1057
 #define IDC_DESCRIPTION                 1057
 #define IDC_MOVEUPWARD                  1057
@@ -271,6 +271,7 @@
 #define IDC_TIMELEFT                    1127
 #define IDC_REPLAYBUFFERLENGTH_STATIC   1127
 #define IDC_UNLOCKHIGHFPS               1128
+#define IDC_ENCODEFULLRANGE             1129
 #define IDC_CANCEL                      1130
 #define IDC_UNLOCKHIGHFPS2              1130
 #define IDC_USEQSV                      1130
@@ -285,7 +286,7 @@
 #define IDC_PLAYBACKDEVICES             1142
 #define IDC_AUDIOTIMEADJUST_EDIT        1144
 #define IDC_LATENCYMETHOD               1145
-#define IDC_EDIT2                       1147
+#define IDC_DISABLETCPOPTIMIZATIONS     1146
 #define IDC_LATENCYTUNE                 1147
 #define IDC_SETSTREAMSIZE               1148
 #define IDC_GAMMAVAL                    1151
@@ -370,7 +371,9 @@
 #define IDC_USECUSTOMPARAMS             1207
 #define IDC_USEGLOBALBITRATE            1208
 #define IDC_USEGLOBALBUFFERSIZE         1209
+#define IDC_TSRCOPACITY_EDIT            1209
 #define IDC_IMPORT                      1210
+#define IDC_TSRCOPACITY                 1210
 #define IDA_SOURCE_MOVEUP               40018
 #define IDA_SOURCE_MOVEDOWN             40019
 #define IDA_SOURCE_MOVETOTOP            40020
@@ -446,7 +449,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        152
 #define _APS_NEXT_COMMAND_VALUE         40088
-#define _APS_NEXT_CONTROL_VALUE         1209
+#define _APS_NEXT_CONTROL_VALUE         1212
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

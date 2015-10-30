@@ -104,8 +104,6 @@ void BitmapImage::Init(void)
 
     if(GetPathExtension(lpBitmap).CompareI(TEXT("gif")))
     {
-        bool bFail = false;
-
         gif_create(&gif, &bitmap_callbacks);
 
         XFile gifFile;
@@ -127,10 +125,26 @@ void BitmapImage::Init(void)
             result = gif_initialise(&gif, fileSize, lpGifData);
             if(result != GIF_OK && result != GIF_WORKING)
             {
-                bFail = true;
-                break;
+                Log(TEXT("BitmapImage: Warning, couldn't initialise gif %s, it is likely corrupt"), lpBitmap);
+                CreateErrorTexture();
+                return;
             }
         }while(result != GIF_OK);
+
+        if (gif.width > 4096 || gif.height > 4096)
+        {
+            Log(TEXT("BitmapImage: Warning, bad texture dimensions %d x %d in %s"), gif.width, gif.height, lpBitmap);
+            CreateErrorTexture();
+            return;
+        }
+
+        unsigned long long max_size = (unsigned long long)gif.width * (unsigned long long)gif.height * 4LLU * (unsigned long long)gif.frame_count;
+        if (gif.width * gif.height * 4 * gif.frame_count != max_size)
+        {
+            Log(TEXT("BitmapImage: Warning, gif %s overflowed maximum pointer size and was not loaded (%llu > %u)"), lpBitmap, max_size, gif.width * gif.height * 4 * gif.frame_count);
+            CreateErrorTexture();
+            return;
+        }
 
         if(gif.frame_count > 1)
         {

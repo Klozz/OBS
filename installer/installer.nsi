@@ -2,7 +2,7 @@
 
 ; Define your application name
 !define APPNAME "Open Broadcaster Software"
-!define APPNAMEANDVERSION "Open Broadcaster Software 0.637b"
+!define APPNAMEANDVERSION "Open Broadcaster Software 0.656b"
 
 ; Additional script dependencies
 !include WinVer.nsh
@@ -90,7 +90,7 @@ Function PreReqCheck
 	dxMissing:
 		MessageBox MB_YESNO|MB_ICONEXCLAMATION "Your system is missing DirectX components that ${APPNAME} requires. Would you like to download them?" IDYES dxtrue IDNO dxfalse
 		dxtrue:
-			ExecShell "open" "http://www.microsoft.com/en-us/download/details.aspx?id=35"
+			ExecShell "open" "https://obsproject.com/go/dxwebsetup"
 		dxfalse:
 		Quit
 	dxOK:
@@ -100,9 +100,7 @@ Function PreReqCheck
 	GetDLLVersion "xinput9_1_0.dll" $R0 $R1
 	IfErrors xinputMissing xinputOK
 	xinputMissing:
-		MessageBox MB_YESNO|MB_ICONEXCLAMATION "Your system is missing XINPUT components (xinput_9_1_0.dll). This may happen if you are running on a Windows Server OS. Would you like to download the required files from a 3rd party website?" IDYES xinputtrue IDNO xinputfalse
-		xinputtrue:
-			ExecShell "open" "http://www.win2012workstation.com/xinput-and-xaudio-dlls/"
+		MessageBox MB_YESNO|MB_ICONEXCLAMATION "Your system is missing XINPUT components (xinput_9_1_0.dll). This may happen if you are running on a Windows Server OS. You may install OBS anyway, but it will not function correctly until you acquire the XINPUT components. Would you like to continue?" IDYES xinputOK IDNO xinputfalse
 		xinputfalse:
 		Quit
 	xinputOK:
@@ -137,7 +135,7 @@ Section "Open Broadcaster Software" Section1
 	SetOutPath "$PROGRAMFILES32\OBS"
 	File "/oname=LICENSE" "..\COPYING"
 	File "32bit\OBS.exe"
-	File "32bit\libx264-142.dll"
+	File "32bit\libx264-146.dll"
 	File "32bit\QSVHelper.exe"
 	File "32bit\OBSApi.dll"
 	File "32bit\services.xconfig"
@@ -153,8 +151,11 @@ Section "Open Broadcaster Software" Section1
 	File "32bit\plugins\DShowPlugin.dll"
 	File "32bit\plugins\GraphicsCapture.dll"
 	File "32bit\plugins\PSVPlugin.dll"
+	File "32bit\plugins\scenesw.dll"
 	SetOutPath "$PROGRAMFILES32\OBS\plugins\PSVPlugin\locale\"
 	File "32bit\plugins\PSVPlugin\locale\*.txt"
+	SetOutPath "$PROGRAMFILES32\OBS\plugins\scenesw\locale\"
+	File "32bit\plugins\scenesw\locale\*.txt"
 	SetOutPath "$PROGRAMFILES32\OBS\plugins\DShowPlugin\locale\"
 	File "32bit\plugins\DShowPlugin\locale\*.txt"
 	SetOutPath "$PROGRAMFILES32\OBS\plugins\DShowPlugin\shaders\"
@@ -175,7 +176,7 @@ Section "Open Broadcaster Software" Section1
 		SetOutPath "$PROGRAMFILES64\OBS"
 		File "/oname=LICENSE" "..\COPYING"
 		File "64bit\OBS.exe"
-		File "64bit\libx264-142.dll"
+		File "64bit\libx264-146.dll"
 		File "64bit\QSVHelper.exe"
 		File "64bit\OBSApi.dll"
 		File "64bit\services.xconfig"
@@ -191,8 +192,11 @@ Section "Open Broadcaster Software" Section1
 		File "64bit\plugins\DShowPlugin.dll"
 		File "64bit\plugins\GraphicsCapture.dll"
 		File "64bit\plugins\PSVPlugin.dll"
+		File "64bit\plugins\scenesw.dll"
 		SetOutPath "$PROGRAMFILES64\OBS\plugins\PSVPlugin\locale\"
 		File "64bit\plugins\PSVPlugin\locale\*.txt"
+		SetOutPath "$PROGRAMFILES64\OBS\plugins\scenesw\locale\"
+		File "64bit\plugins\scenesw\locale\*.txt"
 		SetOutPath "$PROGRAMFILES64\OBS\plugins\DShowPlugin\locale\"
 		File "64bit\plugins\DShowPlugin\locale\*.txt"
 		SetOutPath "$PROGRAMFILES64\OBS\plugins\DShowPlugin\shaders\"
@@ -266,7 +270,7 @@ Section "un.OBS Program Files"
 	; Clean up Open Broadcaster Software
 	Delete "$PROGRAMFILES32\OBS\OBS.exe"
 	Delete "$PROGRAMFILES32\LICENSE"
-	Delete "$PROGRAMFILES32\OBS\libx264-142.dll"
+	Delete "$PROGRAMFILES32\OBS\libx264-146.dll"
 	Delete "$PROGRAMFILES32\OBS\QSVHelper.exe"
 	Delete "$PROGRAMFILES32\OBS\OBSApi.dll"
 	Delete "$PROGRAMFILES32\OBS\services.xconfig"
@@ -280,6 +284,8 @@ Section "un.OBS Program Files"
 	Delete "$PROGRAMFILES32\OBS\plugins\NoiseGate.dll"
 	Delete "$PROGRAMFILES32\OBS\plugins\PSVPlugin.dll"
 	Delete "$PROGRAMFILES32\OBS\plugins\PSVPlugin\locale\*.txt"
+	Delete "$PROGRAMFILES32\OBS\plugins\scenesw.dll"
+	Delete "$PROGRAMFILES32\OBS\plugins\scenesw\locale\*.txt"
 	Delete "$PROGRAMFILES32\OBS\plugins\DShowPlugin\locale\*.txt"
 	Delete "$PROGRAMFILES32\OBS\plugins\DShowPlugin\shaders\*.?Shader"
 	Delete "$PROGRAMFILES32\OBS\plugins\GraphicsCapture\*.dll"
@@ -287,7 +293,7 @@ Section "un.OBS Program Files"
 	${if} ${RunningX64}
 		Delete "$PROGRAMFILES64\OBS\OBS.exe"
 		Delete "$PROGRAMFILES64\LICENSE"
-		Delete "$PROGRAMFILES64\OBS\libx264-142.dll"
+		Delete "$PROGRAMFILES64\OBS\libx264-146.dll"
 		Delete "$PROGRAMFILES64\OBS\QSVHelper.exe"
 		Delete "$PROGRAMFILES64\OBS\OBSApi.dll"
 		Delete "$PROGRAMFILES64\OBS\services.xconfig"
@@ -301,6 +307,8 @@ Section "un.OBS Program Files"
 		Delete "$PROGRAMFILES64\OBS\plugins\NoiseGate.dll"
 		Delete "$PROGRAMFILES64\OBS\plugins\PSVPlugin.dll"
 		Delete "$PROGRAMFILES64\OBS\plugins\PSVPlugin\locale\*.txt"
+		Delete "$PROGRAMFILES64\OBS\plugins\scenesw.dll"
+		Delete "$PROGRAMFILES64\OBS\plugins\scenesw\locale\*.txt"
 		Delete "$PROGRAMFILES64\OBS\plugins\DShowPlugin\locale\*.txt"
 		Delete "$PROGRAMFILES64\OBS\plugins\DShowPlugin\shaders\*.?Shader"
 		Delete "$PROGRAMFILES64\OBS\plugins\GraphicsCapture\*.dll"
@@ -315,6 +323,8 @@ Section "un.OBS Program Files"
 	RMDir "$PROGRAMFILES32\OBS\plugins\DShowPlugin\"
 	RMDir "$PROGRAMFILES32\OBS\plugins\PSVPlugin\locale\"
 	RMDir "$PROGRAMFILES32\OBS\plugins\PSVPlugin\"
+	RMDir "$PROGRAMFILES32\OBS\plugins\scenesw\locale\"
+	RMDir "$PROGRAMFILES32\OBS\plugins\scenesw\"
 	RMDir "$PROGRAMFILES32\OBS\plugins"
 	RMDir "$PROGRAMFILES32\OBS\locale"
 	RMDir "$PROGRAMFILES32\OBS\shaders"
@@ -325,6 +335,8 @@ Section "un.OBS Program Files"
 		RMDir "$PROGRAMFILES64\OBS\plugins\DShowPlugin\"
 		RMDir "$PROGRAMFILES64\OBS\plugins\PSVPlugin\locale\"
 		RMDir "$PROGRAMFILES64\OBS\plugins\PSVPlugin\"
+		RMDir "$PROGRAMFILES64\OBS\plugins\scenesw\locale\"
+		RMDir "$PROGRAMFILES64\OBS\plugins\scenesw\"
 		RMDir "$PROGRAMFILES64\OBS\plugins"
 		RMDir "$PROGRAMFILES64\OBS\locale"
 		RMDir "$PROGRAMFILES64\OBS\shaders"

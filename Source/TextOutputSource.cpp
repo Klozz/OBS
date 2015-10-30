@@ -28,6 +28,10 @@
     if(val < minVal) val = minVal; \
     else if(val > maxVal) val = maxVal;
 
+#define MAX_TEX_SIZE_W 8192
+#define MAX_TEX_SIZE_H 8192
+#define MIN_TEX_SIZE_W 32
+#define MIN_TEX_SIZE_H 32
 
 inline DWORD GetAlphaVal(UINT opacityLevel)
 {
@@ -284,6 +288,10 @@ class TextOutputSource : public ImageSource
 
         if(strCurrentText.IsValid())
         {
+            // Apparently, \0 is not always a zero-width character?
+            // Not including it as part of the string measurement may cut off the final word
+            // on the line when using certain fonts together with outlines and wrapping.
+            INT strLength = strCurrentText.Length() + 1;
             if(bUseExtents && bWrap)
             {
                 layoutBox.X = layoutBox.Y = 0;
@@ -308,14 +316,14 @@ class TextOutputSource : public ImageSource
                 }
                 else
                 {
-                    stat = graphics->MeasureString(strCurrentText, -1, &font, layoutBox, &format, &boundingBox);
+                    stat = graphics->MeasureString(strCurrentText, strLength, &font, layoutBox, &format, &boundingBox);
                     if(stat != Gdiplus::Ok)
                         AppWarning(TEXT("TextSource::UpdateTexture: Gdiplus::Graphics::MeasureString failed: %u"), (int)stat);
                 }
             }
             else
             {
-                stat = graphics->MeasureString(strCurrentText, -1, &font, Gdiplus::PointF(0.0f, 0.0f), &format, &boundingBox);
+                stat = graphics->MeasureString(strCurrentText, strLength, &font, Gdiplus::PointF(0.0f, 0.0f), &format, &boundingBox);
                 if(stat != Gdiplus::Ok)
                     AppWarning(TEXT("TextSource::UpdateTexture: Gdiplus::Graphics::MeasureString failed: %u"), (int)stat);
                 if(bUseOutline)
@@ -380,8 +388,8 @@ class TextOutputSource : public ImageSource
         textSize.cx += textSize.cx%2;
         textSize.cy += textSize.cy%2;
 
-        ClampVal(textSize.cx, 32, 8192);
-        ClampVal(textSize.cy, 32, 8192);
+        ClampVal(textSize.cx, MIN_TEX_SIZE_W, MAX_TEX_SIZE_W);
+        ClampVal(textSize.cy, MIN_TEX_SIZE_H, MAX_TEX_SIZE_H);
 
         //----------------------------------------------------------------------
         // write image
@@ -677,8 +685,8 @@ public:
         mode        = data->GetInt(TEXT("mode"), 0);
         bUsePointFiltering = data->GetInt(TEXT("pointFiltering"), 0) != 0;
 
-        baseSize.x  = data->GetFloat(TEXT("baseSizeCX"), 100);
-        baseSize.y  = data->GetFloat(TEXT("baseSizeCY"), 100);
+        baseSize.x  = data->GetFloat(TEXT("baseSizeCX"), MIN_TEX_SIZE_W);
+        baseSize.y  = data->GetFloat(TEXT("baseSizeCY"), MIN_TEX_SIZE_H);
 
         bUseOutline    = data->GetInt(TEXT("useOutline")) != 0;
         outlineColor   = data->GetInt(TEXT("outlineColor"), 0xFF000000);
@@ -880,7 +888,7 @@ INT_PTR CALLBACK ConfigureTextProc(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
                 //-----------------------------------------
 
-                SendMessage(GetDlgItem(hwnd, IDC_TEXTSIZE), UDM_SETRANGE32, 5, 2048);
+                SendMessage(GetDlgItem(hwnd, IDC_TEXTSIZE), UDM_SETRANGE32, 5, MAX_TEX_SIZE_H);
                 SendMessage(GetDlgItem(hwnd, IDC_TEXTSIZE), UDM_SETPOS32, 0, data->GetInt(TEXT("fontSize"), 48));
 
                 //-----------------------------------------
@@ -942,10 +950,10 @@ INT_PTR CALLBACK ConfigureTextProc(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
                 bool bVertical = data->GetInt(TEXT("vertical"), 0) != 0;
 
-                SendMessage(GetDlgItem(hwnd, IDC_EXTENTWIDTH),  UDM_SETRANGE32, 32, 2048);
-                SendMessage(GetDlgItem(hwnd, IDC_EXTENTHEIGHT), UDM_SETRANGE32, 32, 2048);
-                SendMessage(GetDlgItem(hwnd, IDC_EXTENTWIDTH),  UDM_SETPOS32, 0, data->GetInt(TEXT("extentWidth"),  100));
-                SendMessage(GetDlgItem(hwnd, IDC_EXTENTHEIGHT), UDM_SETPOS32, 0, data->GetInt(TEXT("extentHeight"), 100));
+                SendMessage(GetDlgItem(hwnd, IDC_EXTENTWIDTH),  UDM_SETRANGE32, MIN_TEX_SIZE_W, MAX_TEX_SIZE_W);
+                SendMessage(GetDlgItem(hwnd, IDC_EXTENTHEIGHT), UDM_SETRANGE32, MIN_TEX_SIZE_H, MAX_TEX_SIZE_H);
+                SendMessage(GetDlgItem(hwnd, IDC_EXTENTWIDTH),  UDM_SETPOS32, 0, data->GetInt(TEXT("extentWidth"),  MIN_TEX_SIZE_W));
+                SendMessage(GetDlgItem(hwnd, IDC_EXTENTHEIGHT), UDM_SETPOS32, 0, data->GetInt(TEXT("extentHeight"), MIN_TEX_SIZE_H));
 
                 bool bWrap = data->GetInt(TEXT("wrap"), 0) != 0;
                 SendMessage(GetDlgItem(hwnd, IDC_WRAP), BM_SETCHECK, bWrap ? BST_CHECKED : BST_UNCHECKED, 0);

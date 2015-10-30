@@ -19,15 +19,14 @@
 
 #include "Main.h"
 #include <time.h>
+#include <Shlobj.h>
 
 #include "BitmapImage.h"
 
-#define MIN_TRANSITION_TIME 3
+#define MIN_TRANSITION_TIME 1
 #define MAX_TRANSITION_TIME 600
 
 const float fadeTime = 1.5f;
-
-extern "C" double round(double val);
 
 class BitmapTransitionSource : public ImageSource
 {
@@ -45,6 +44,7 @@ class BitmapTransitionSource : public ImageSource
 
     float curTransitionTime;
     float curFadeValue;
+    UINT  opacity;
     bool  bTransitioning;
 
     bool  bFadeInOnly;
@@ -104,7 +104,7 @@ public:
         }
 
         curTransitionTime += fSeconds;
-        if(curTransitionTime >= transitionTime)
+        if (!bTransitioning && curTransitionTime >= transitionTime)
         {
             curTransitionTime = 0.0f;
 
@@ -152,18 +152,20 @@ public:
     {
         if(bitmapImages.Num())
         {
+            float fOpacity = (float)opacity / 100.0f;
+
             if(bTransitioning && bitmapImages.Num() > 1)
             {
                 float curAlpha = MIN(curFadeValue/fadeTime, 1.0f);
                 if(bFadeInOnly)
-                    DrawBitmap(curTexture, 1.0f, pos, size);
+                    DrawBitmap(curTexture, fOpacity, pos, size);
                 else
-                    DrawBitmap(curTexture, 1.0f-curAlpha, pos, size);
+                    DrawBitmap(curTexture, fOpacity * (1.0f - curAlpha), pos, size);
 
-                DrawBitmap(nextTexture, curAlpha, pos, size);
+                DrawBitmap(nextTexture, fOpacity * curAlpha, pos, size);
             }
             else
-                DrawBitmap(curTexture, 1.0f, pos, size);
+                DrawBitmap(curTexture, fOpacity, pos, size);
         }
     }
 
@@ -188,19 +190,63 @@ public:
                 continue;
             }
 
-            BitmapImage *bitmapImage = new BitmapImage;
-            bitmapImage->SetPath(strBitmap);
-            bitmapImage->EnableFileMonitor(false);
-            bitmapImage->Init();
-
-            if(bFirst)
+            if (OSFileIsDirectory(strBitmap))
             {
-                fullSize = bitmapImage->GetSize();
-                baseAspect = double(fullSize.x)/double(fullSize.y);
-                bFirst = false;
-            }
+                OSFindData fd;
 
-            bitmapImages << bitmapImage;
+                String searchPath = strBitmap;
+                searchPath.AppendString(TEXT("\\*"));
+
+                HANDLE hFind = OSFindFirstFile(searchPath, fd);
+
+                if (hFind)
+                {
+                    do
+                    {
+                        if (fd.bDirectory)
+                            continue;
+
+                        String fullPath = strBitmap + "\\" + fd.fileName;
+
+                        String extStr = GetPathExtension(fullPath.Array());
+                        CTSTR ext = extStr.Array();
+                        if (!scmp(ext, TEXT("jpg")) || !scmp(ext, TEXT("png")) || !scmp(ext, TEXT("gif")) || !scmp(ext, TEXT("bmp")) || !scmp(ext, TEXT("dds")))
+                        {
+                            BitmapImage *bitmapImage = new BitmapImage;
+                            bitmapImage->SetPath(fullPath);
+                            bitmapImage->EnableFileMonitor(false);
+                            bitmapImage->Init();
+
+                            if (bFirst)
+                            {
+                                fullSize = bitmapImage->GetSize();
+                                baseAspect = double(fullSize.x) / double(fullSize.y);
+                                bFirst = false;
+                            }
+
+                            bitmapImages << bitmapImage;
+                        }
+                    } while (OSFindNextFile(hFind, fd));
+
+                    OSFindClose(hFind);
+                }
+            }
+            else
+            {
+                BitmapImage *bitmapImage = new BitmapImage;
+                bitmapImage->SetPath(strBitmap);
+                bitmapImage->EnableFileMonitor(false);
+                bitmapImage->Init();
+
+                if(bFirst)
+                {
+                    fullSize = bitmapImage->GetSize();
+                    baseAspect = double(fullSize.x)/double(fullSize.y);
+                    bFirst = false;
+                }
+
+                bitmapImages << bitmapImage;
+            }
         }
 
         //------------------------------------
@@ -211,6 +257,10 @@ public:
         else if(transitionTime > MAX_TRANSITION_TIME)
             transitionTime = MAX_TRANSITION_TIME;
 
+
+        opacity = data->GetInt(TEXT("opacity"),100);
+        if(opacity > 100)
+             opacity = 100;
         //------------------------------------
 
         bFadeInOnly = data->GetInt(TEXT("fadeInOnly"), 1) != 0;
@@ -238,6 +288,67 @@ public:
         curFadeValue = 0.0f;
     }
 
+    static Vect2 GetFirstBitmapSize(StringList &bitmapList)
+    {
+        String firstBitmapFile;
+
+        for (UINT i = 0; i<bitmapList.Num(); i++)
+        {
+            String &strBitmap = bitmapList[i];
+            if (strBitmap.IsEmpty())
+            {
+                AppWarning(TEXT("BitmapTransitionSource::GetFirstBitmapSize: Empty path"));
+                continue;
+            }
+
+            if (OSFileIsDirectory(strBitmap))
+            {
+                OSFindData fd;
+
+                String searchPath = strBitmap;
+                searchPath.AppendString(TEXT("\\*"));
+
+                HANDLE hFind = OSFindFirstFile(searchPath, fd);
+
+                if (hFind)
+                {
+                    do
+                    {
+                        if (fd.bDirectory)
+                            continue;
+
+                        String fullPath = strBitmap + "\\" + fd.fileName;
+
+                        String extStr = GetPathExtension(fullPath.Array());
+                        CTSTR ext = extStr.Array();
+                        if (!scmp(ext, TEXT("jpg")) || !scmp(ext, TEXT("png")) || !scmp(ext, TEXT("gif")) || !scmp(ext, TEXT("bmp")) || !scmp(ext, TEXT("dds")))
+                        {
+                            firstBitmapFile = fullPath;
+                            break;
+                        }
+                    } while (OSFindNextFile(hFind, fd));
+
+                    OSFindClose(hFind);
+                }
+            }
+            else
+            {
+                firstBitmapFile = strBitmap;
+            }
+
+            if (!firstBitmapFile.IsEmpty())
+                break;
+        }
+
+        D3DX10_IMAGE_INFO ii;
+        if (SUCCEEDED(D3DX10GetImageInfoFromFile(firstBitmapFile.Array(), NULL, &ii, NULL)))
+        {
+            return Vect2((float)ii.Width, (float)ii.Height);
+        }
+
+        return Vect2(0, 0);
+    }
+
     Vect2 GetSize() const {return fullSize;}
 };
 
@@ -252,6 +363,7 @@ ImageSource* STDCALL CreateBitmapTransitionSource(XElement *data)
 
 struct ConfigBitmapInfo
 {
+    CTSTR lpName;
     XElement *data;
     UINT cx, cy;
 };
@@ -305,7 +417,13 @@ INT_PTR CALLBACK ConfigureBitmapTransitionProc(HWND hwnd, UINT message, WPARAM w
                 SendMessage(GetDlgItem(hwnd, IDC_FADEINONLY), BM_SETCHECK, bFadeInOnly ? BST_CHECKED : BST_UNCHECKED, 0);
                 SendMessage(GetDlgItem(hwnd, IDC_DISABLEFADING), BM_SETCHECK, bDisableFading ? BST_CHECKED : BST_UNCHECKED, 0);
                 SendMessage(GetDlgItem(hwnd, IDC_RANDOMIZE), BM_SETCHECK, bRandomize ? BST_CHECKED : BST_UNCHECKED, 0);
-                
+
+                UINT opacity = configInfo->data->GetInt(TEXT("opacity"), 100);
+                if(opacity > 100)
+	                opacity = 100;
+
+                SendMessage(GetDlgItem(hwnd, IDC_TSRCOPACITY), UDM_SETRANGE32, 0, 100);
+                SendMessage(GetDlgItem(hwnd, IDC_TSRCOPACITY), UDM_SETPOS32, 0, opacity);
                 
                 EnableWindow(GetDlgItem(hwnd, IDC_FADEINONLY), !bDisableFading);
 
@@ -326,9 +444,9 @@ INT_PTR CALLBACK ConfigureBitmapTransitionProc(HWND hwnd, UINT message, WPARAM w
                         ofn.lpstrFile = lpFile;
                         ofn.hwndOwner = hwnd;
                         ofn.nMaxFile = 32*1024*sizeof(TCHAR);
-                        ofn.lpstrFilter = TEXT("All Formats (*.bmp;*.dds;*.jpg;*.png;*.gif)\0*.bmp;*.dds;*.jpg;*.png;*.gif\0");
+                        ofn.lpstrFilter = TEXT("All Formats (*.jpg;*.png;*.gif;*.bmp;*.dds)\0*.bmp;*.dds;*.jpg;*.png;*.gif\0");
                         ofn.nFilterIndex = 1;
-                        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER;
+                        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER | OFN_HIDEREADONLY;
 
                         TCHAR curDirectory[MAX_PATH+1];
                         GetCurrentDirectory(MAX_PATH, curDirectory);
@@ -356,6 +474,29 @@ INT_PTR CALLBACK ConfigureBitmapTransitionProc(HWND hwnd, UINT message, WPARAM w
                         }
 
                         Free(lpFile);
+
+                        break;
+                    }
+
+                case IDC_ADDFOLDER:
+                    {
+                        BROWSEINFO bi = { 0 };
+                        bi.lpszTitle = Str("Browse");
+                        bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+
+                        LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+                        if (pidl)
+                        {
+                            String path;
+                            path.SetLength(MAX_PATH);
+
+                            if (SHGetPathFromIDList(pidl, path.Array()))
+                            {
+                                SendMessage(GetDlgItem(hwnd, IDC_BITMAPS), LB_ADDSTRING, 0, (LPARAM)path.Array());
+                            }
+
+                            CoTaskMemFree(pidl);
+                        }
 
                         break;
                     }
@@ -429,6 +570,28 @@ INT_PTR CALLBACK ConfigureBitmapTransitionProc(HWND hwnd, UINT message, WPARAM w
                     }
                     break;
 
+                case IDC_TSRCOPACITY_EDIT:
+                    if(HIWORD(wParam) == EN_CHANGE)
+                    {
+                        ConfigBitmapInfo *configData = (ConfigBitmapInfo*)GetWindowLongPtr(hwnd, DWLP_USER);
+                        if(configData)
+                        {
+                            ImageSource *source = API->GetSceneImageSource(configData->lpName);
+                            if(source)
+                            {
+                                HWND hwndVal = NULL;
+                                hwndVal = GetDlgItem(hwnd, IDC_TSRCOPACITY);
+
+                                if(hwndVal)
+                                {
+                                    int val = (int)SendMessage(hwndVal, UDM_GETPOS32, 0, 0);
+                                    source->SetInt(TEXT("opacity"), val);
+                                }
+                            }
+                        }
+                    }
+                    break;
+
                 case IDOK:
                     {
                         HWND hwndBitmaps = GetDlgItem(hwnd, IDC_BITMAPS);
@@ -448,11 +611,12 @@ INT_PTR CALLBACK ConfigureBitmapTransitionProc(HWND hwnd, UINT message, WPARAM w
 
                         ConfigBitmapInfo *configInfo = (ConfigBitmapInfo*)GetWindowLongPtr(hwnd, DWLP_USER);
 
-                        D3DX11_IMAGE_INFO ii;
-                        if(SUCCEEDED(D3DX11GetImageInfoFromFile(bitmapList[0], NULL, &ii, NULL)))
+                        Vect2 size = BitmapTransitionSource::GetFirstBitmapSize(bitmapList);
+
+                        if (size.x && size.y)
                         {
-                            configInfo->cx = ii.Width;
-                            configInfo->cy = ii.Height;
+                            configInfo->cx = (UINT)size.x;
+                            configInfo->cy = (UINT)size.y;
                         }
                         else
                         {
@@ -471,6 +635,7 @@ INT_PTR CALLBACK ConfigureBitmapTransitionProc(HWND hwnd, UINT message, WPARAM w
                         configInfo->data->SetInt(TEXT("fadeInOnly"), bFadeInOnly);
                         configInfo->data->SetInt(TEXT("disableFading"), bDisableFading);
                         configInfo->data->SetInt(TEXT("randomize"), bRandomize);
+                        configInfo->data->SetInt(TEXT("opacity"), (UINT)SendMessage(GetDlgItem(hwnd, IDC_TSRCOPACITY), UDM_GETPOS32, 0, 0));
                     }
 
                 case IDCANCEL:
@@ -497,6 +662,7 @@ bool STDCALL ConfigureBitmapTransitionSource(XElement *element, bool bCreating)
 
     ConfigBitmapInfo configInfo;
     configInfo.data = data;
+    configInfo.lpName = element->GetName();
 
     if (OBSDialogBox(hinstMain, MAKEINTRESOURCE(IDD_CONFIGURETRANSITIONSOURCE), hwndMain, ConfigureBitmapTransitionProc, (LPARAM)&configInfo) == IDOK)
     {

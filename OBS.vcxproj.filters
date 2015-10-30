@@ -55,9 +55,6 @@
     <ClCompile Include="Source\GlobalSource.cpp">
       <Filter>Source</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hacks.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
     <ClCompile Include="Source\HTTPClient.cpp">
       <Filter>Source</Filter>
     </ClCompile>
@@ -161,6 +158,9 @@
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="Source\Service.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\InstallService.cpp">
       <Filter>Source</Filter>
     </ClCompile>
   </ItemGroup>

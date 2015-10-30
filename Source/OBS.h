@@ -556,6 +556,9 @@ std::pair<std::unique_ptr<XConfig>, XElement*> LoadService(const ServiceIdentifi
 std::pair<std::unique_ptr<XConfig>, XElement*> LoadService(String *failReason=nullptr);
 ServiceIdentifier GetCurrentService();
 
+bool InstallUserService(TCHAR *path);
+void RegisterServiceFileHandler(void);
+
 //----------------------------
 
 struct StatusBarDrawData
@@ -636,13 +639,14 @@ class OBS
     // graphics stuff
 
     IDXGISwapChain  *projectorSwap;
-    ID3D11Texture2D *copyTextures[NUM_RENDER_BUFFERS];
+    ID3D10Texture2D *copyTextures[NUM_RENDER_BUFFERS];
     Texture         *mainRenderTextures[NUM_RENDER_BUFFERS];
     Texture         *yuvRenderTextures[NUM_RENDER_BUFFERS];
 
     Texture *lastRenderTexture;
     Texture *transitionTexture;
 
+    bool    performTransition;
     bool    bTransitioning;
     float   transitionAlpha;
 
@@ -1069,7 +1073,7 @@ private:
     static Vect2 GetFrameToWindowScale();
 
     // helper to valid crops as you scale items
-    static bool EnsureCropValid(SceneItem *&scaleItem, Vect2 &minSize, Vect2 &snapSize, bool bControlDown, int cropEdges, bool cropSymmetric);
+    static bool EnsureCropValid(SceneItem *&scaleItem, Vect2 &minSize, Vect2 &snapSize, bool bSnap, int cropEdges, bool cropSymmetric);
 
     static INT_PTR CALLBACK EnterGlobalSourceNameDialogProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
     static INT_PTR CALLBACK EnterSourceNameDialogProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);

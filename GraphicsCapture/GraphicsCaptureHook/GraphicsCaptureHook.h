@@ -26,6 +26,9 @@
 #include <windows.h>
 #include <shlobj.h>
 
+#define PSAPI_VERSION 1
+#include <psapi.h>
+
 #pragma intrinsic(memcpy, memset, memcmp)
 
 #include <xmmintrin.h>
@@ -59,6 +62,9 @@ typedef unsigned __int64 UPARAM;
 typedef unsigned long UPARAM;
 #endif
 
+extern fstream logOutput;
+extern string CurrentTimeString();
+
 class HookData
 {
     BYTE data[14];
@@ -66,10 +72,12 @@ class HookData
     FARPROC hookFunc;
     bool bHooked;
     bool b64bitJump;
+    bool bAttemptedBounce;
+    LPVOID bounceAddress;
 
 public:
 #if OLDHOOKS
-    inline HookData() : bHooked(false), func(NULL), hookFunc(NULL), b64bitJump(false) {}
+    inline HookData() : bHooked(false), func(NULL), hookFunc(NULL), b64bitJump(false), bAttemptedBounce(false) {}
 #else
     inline HookData() : bHooked(false), func(NULL), hookFunc(NULL), b64bitJump(false), origFunc(NULL)
     {
@@ -102,6 +110,54 @@ public:
         if(!VirtualProtect((LPVOID)func, 14, PAGE_EXECUTE_READWRITE, &oldProtect))
             return false;
 
+#ifndef _WIN64
+        // FIXME: check 64 bit instructions too
+        if (*(BYTE *)func == 0xE9 || *(BYTE *)func == 0xE8)
+        {
+            CHAR		*modName, *ourName;
+            CHAR		szModName[MAX_PATH];
+            CHAR		szOurName[MAX_PATH];
+            DWORD		memAddress;
+
+            MEMORY_BASIC_INFORMATION mem;
+
+            INT_PTR jumpAddress = *(DWORD *)((BYTE *)func + 1) + (DWORD)func;
+
+            // try to identify target
+            if (VirtualQueryEx(GetCurrentProcess(), (LPVOID)jumpAddress, &mem, sizeof(mem)) && mem.State == MEM_COMMIT)
+                memAddress = (DWORD)mem.AllocationBase;
+            else
+                memAddress = jumpAddress;
+
+            if (GetMappedFileNameA(GetCurrentProcess(), (LPVOID)memAddress, szModName, _countof(szModName) - 1))
+                modName = szModName;
+            else if (GetModuleFileNameA((HMODULE)memAddress, szModName, _countof(szModName) - 1))
+                modName = szModName;
+            else
+                modName = "unknown";
+
+            // and ourselves
+            if (VirtualQueryEx(GetCurrentProcess(), (LPVOID)func, &mem, sizeof(mem)) && mem.State == MEM_COMMIT)
+                memAddress = (DWORD)mem.AllocationBase;
+            else
+                memAddress = (DWORD)func;
+
+            if (GetMappedFileNameA(GetCurrentProcess(), (LPVOID)memAddress, szOurName, _countof(szOurName) - 1))
+                ourName = szOurName;
+            else if (GetModuleFileNameA((HMODULE)memAddress, szOurName, _countof(szOurName) - 1))
+                ourName = szOurName;
+            else
+                ourName = "unknown";
+
+            CHAR *p = strrchr(ourName, '\\');
+            if (p)
+                ourName = p + 1;
+
+            logOutput << CurrentTimeString() << "WARNING: Another hook is already present while trying to hook " << ourName << ", hook target is " << modName <<
+                ". If you experience crashes, try disabling the other hooking application" << endl;
+        }
+#endif
+
         memcpy(data, (const void*)func, 14);
         //VirtualProtect((LPVOID)func, 14, oldProtect, &oldProtect);
 
@@ -115,16 +171,95 @@ public:
 
         UPARAM startAddr = UPARAM(func);
         UPARAM targetAddr = UPARAM(hookFunc);
-        UPARAM offset = targetAddr - (startAddr+5);
+        ULONG64 offset, diff;
 
+        offset = targetAddr - (startAddr + 5);
+
+        // we could be loaded above or below the target function
+        if (startAddr + 5 > targetAddr)
+            diff = startAddr + 5 - targetAddr;
+        else
+            diff = targetAddr - startAddr + 5;
+
+#ifdef _WIN64
+        // for 64 bit, try to use a shorter instruction sequence if we're too far apart, or we
+        // risk overwriting other function prologues due to the 64 bit jump opcode length
+        if (diff > 0x7fff0000 && !bAttemptedBounce)
+        {
+            MEMORY_BASIC_INFORMATION mem;
+
+            // if we fail we don't want to continuously search memory every other call
+            bAttemptedBounce = true;
+
+            if (VirtualQueryEx(GetCurrentProcess(), (LPCVOID)startAddr, &mem, sizeof(mem)))
+            {
+                int i, pagesize;
+                ULONG64 address;
+                SYSTEM_INFO systemInfo;
+
+                GetSystemInfo(&systemInfo);
+                pagesize = systemInfo.dwAllocationGranularity;
+
+                // try to allocate a page somewhere below the target
+                for (i = 0, address = (ULONG64)mem.AllocationBase - pagesize; i < 256; i++, address -= pagesize)
+                {
+                    bounceAddress = VirtualAlloc((LPVOID)address, pagesize, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+                    if (bounceAddress)
+                        break;
+                }
+
+                // if that failed, let's try above
+                if (!bounceAddress)
+                {
+                    for (i = 0, address = (ULONG64)mem.AllocationBase + mem.RegionSize + pagesize; i < 256; i++, address += pagesize)
+                    {
+                        bounceAddress = VirtualAlloc((LPVOID)address, pagesize, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+                        if (bounceAddress)
+                            break;
+                    }
+                }
+
+                if (bounceAddress)
+                {
+                    // we found some space, let's try to put the 64 bit jump code there and fix up values for the original hook
+                    ULONG64 newdiff;
+
+                    if (startAddr + 5 > (UPARAM)bounceAddress)
+                        newdiff = startAddr + 5 - (UPARAM)bounceAddress;
+                    else
+                        newdiff = (UPARAM)bounceAddress - startAddr + 5;
+
+                    // first, see if we can reach it with a 32 bit jump
+                    if (newdiff <= 0x7fff0000)
+                    {
+                        // we can! update values so the shorter hook is written below
+                        logOutput << CurrentTimeString() << "Creating bounce hook at " << std::hex << bounceAddress << " for " << std::hex << (LPVOID)startAddr <<
+                            " -> " << std::hex << (LPVOID)targetAddr << " (diff " << std::hex << diff << ")\n";
+                        FillMemory(bounceAddress, pagesize, 0xCC);
+
+                        // write new jmp
+                        LPBYTE addrData = (LPBYTE)bounceAddress;
+                        *(addrData++) = 0xFF;
+                        *(addrData++) = 0x25;
+                        *((LPDWORD)(addrData)) = 0;
+                        *((unsigned __int64*)(addrData + 4)) = targetAddr;
+
+                        targetAddr = (UPARAM)bounceAddress;
+                        offset = targetAddr - (startAddr + 5);
+                        diff = newdiff;
+                    }
+                }
+            }
+        }
+#endif
 
 #if OLDHOOKS
         DWORD oldProtect;
 
 #ifdef _WIN64
-        b64bitJump = (offset > 0x7fff0000);
+        b64bitJump = (diff > 0x7fff0000);
 
-        if(b64bitJump)
+        if (b64bitJump)
         {
             LPBYTE addrData = (LPBYTE)func;
             VirtualProtect((LPVOID)func, 14, PAGE_EXECUTE_READWRITE, &oldProtect);

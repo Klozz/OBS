@@ -45,6 +45,7 @@ MessageBoxWarningCaption="Advertencia"
 NoSourcesFound="¡No ha agregado ninguna fuente! ¿Está seguro que desea transmitir una pantalla negra?"
 StreamClosePending="El stream o la grabación están incompletos, si cierra OBS ahora quedará corrupto el archivo. Quiere esperar 15 segundos para darle tiempo a la grabación que finalice ?"
 
+
 ImportGlobalSourceNameExists="La fuente global '$1' ya existe en el conjunto de escenas actual."
 ImportGlobalSources="Importar fuentes globales"
 
@@ -217,6 +218,7 @@ Settings.Advanced.AutomaticLatency="Modo de baja latencia automático"
 Settings.Advanced.AllowOtherHotkeyModifiers="Permitir otros modificadores en las teclas rápidas"
 Settings.Advanced.BindToIP="Utilizar sólo esta interfaz:"
 Settings.Advanced.DisablePreviewEncoding="Desactivar la codificación mientras previsualiza"
+Settings.Advanced.DisableTCPOptimizations="Deshabilitar optimización de ventana de envío TCP"
 Settings.Advanced.GlobalAudioTimeAdjust="Desfase global de audio (milisegundos):"
 Settings.Advanced.LatencyTuning="Factor de ajuste de latencia:"
 Settings.Advanced.Network="Red"
@@ -240,6 +242,7 @@ Settings.Advanced.VideoEncoderSettingsTooltip="Esto permite ingresar parámetros
 Settings.Advanced.X264Profile="Perfil de codificación:"
 Settings.Advanced.NVENCPreset="Preajuste NVENC:"
 Settings.Advanced.QSVPreset="Preset de QuickSync:"
+Settings.Advanced.EncodeFullRange="Codificar en gama completa"
 
 Settings.Advanced.Priority.Idle="Inactivo"
 Settings.Advanced.Priority.Normal="Normal"

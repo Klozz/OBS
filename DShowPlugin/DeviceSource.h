@@ -141,6 +141,9 @@ class DeviceSource : public ImageSource
     UINT            linePitch, lineShift, lineSize;
     BOOL            bUseCustomResolution;
     UINT            preferredOutputType;
+    BOOL            fullRange;
+    int             colorSpace;
+    BOOL            use709;
 
     struct {
         int                         type; //DeinterlacingType
@@ -174,7 +177,7 @@ class DeviceSource : public ImageSource
     HANDLE          hStopSampleEvent;
     HANDLE          hSampleMutex;
     HANDLE          hSampleThread;
-    UINT            bufferTime;
+    UINT            bufferTime;				// 100-nsec units (same as REFERENCE_TIME)
     SampleData      *latestVideoSample;
     List<SampleData*> samples;
 
